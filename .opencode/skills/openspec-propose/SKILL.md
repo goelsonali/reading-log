@@ -32,6 +32,26 @@ When the user is ready to implement, they must start the apply workflow explicit
 
 **Steps**
 
+0. **Constitution Gate (MANDATORY FIRST STEP)**
+
+   Before anything else, read the project's constitution guardrail file
+   (`CONSTITUTION.md` at the repository root — it is also auto-loaded into the
+   session via `opencode.json` → `instructions`). Treat it as the binding
+   contract for this change.
+
+   - Read `CONSTITUTION.md` in full.
+   - Confirm the proposed change is expressible as a spec-driven change with at
+     least one capability (or a legitimate `skip_specs` exception).
+   - Confirm the change does not silently alter any existing spec-level behavior.
+   - Confirm no new dependency, security, or convention concern is being
+     introduced that the change will not address in its design.
+   - If the proposed change would violate the constitution, STOP and surface it
+     to the user. Do not create the change. Suggest amending the constitution as
+     its own change instead.
+
+   Every proposal produced by this workflow inherits the constitution, and every
+   change MUST satisfy it before it is considered ready to implement.
+
 1. **Understand the request and clarify material ambiguity**
 
    If no clear input is provided, ask the user (open-ended, no preset options):
@@ -127,7 +147,7 @@ After completing all artifacts, summarize:
 - Change name and location
 - List of artifacts created with brief descriptions, plus any conditional artifact you skipped and why
 - What's ready: "All artifacts needed for implementation are ready."
-- Prompt: "The artifacts are ready for review. When you are ready, run `/opsx-apply` or ask me to apply this change."
+- Prompt: "The artifacts are ready for a mandatory review against the constitution and specs (run `/opsx-review`). When you are ready to implement, run `/opsx-apply`."
 
 **Artifact Creation Guidelines**
 

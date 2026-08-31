@@ -44,3 +44,50 @@ curl -X POST http://localhost:8081/api/v1/books \
 ```bash
 ./gradlew test
 ```
+
+## Spec-Driven Development
+
+This repository uses **spec-driven development** via [OpenSpec](https://openspec.dev). Requirements are captured as behavior specs, planned as changes, and implemented step by step.
+
+### How it works
+
+- **Specs** (`openspec/specs/`) define what the system must do — observable behavior, scenarios, and contracts.
+- **Changes** (`openspec/changes/<change-name>/`) contain the planning artifacts for each piece of work, in this order:
+  - `proposal.md` — what & why
+  - `specs/<capability>/spec.md` — the behavior contract (delta)
+  - `design.md` — how to implement it
+  - `tasks.md` — the implementation checklist
+- Completed changes are archived under `openspec/changes/archive/`.
+
+### Getting started
+
+You'll need the `openspec` CLI (see the [OpenSpec docs](https://openspec.dev) to install it).
+
+```bash
+# Confirm the CLI works and see current state
+openspec --version
+openspec list            # list active changes
+
+# Start a new change (proposal, specs, design, tasks)
+openspec new change "<change-name>"
+
+# Incrementally create each artifact
+openspec instructions proposal --change "<change-name>"
+openspec instructions specs --change "<change-name>"
+openspec instructions design --change "<change-name>"
+openspec instructions tasks --change "<change-name>"
+
+# Validate your change and its specs
+openspec validate --change "<change-name>" --strict
+
+# Check status as you go
+openspec status --change "<change-name>"
+```
+
+Once the planning artifacts are ready, implement the tasks, then archive the completed change. Interactive helpers that walk through this flow (propose, apply, verify, archive, review) are available in this repo under `.opencode/commands/` (e.g. the `opsx-*` commands).
+
+## Project Guardrails (CONSTITUTION.md)
+
+The repository's non-negotiable rules are defined in **[`CONSTITUTION.md`](./CONSTITUTION.md)**. This file is the binding contract for every change, proposal, review, and line of code
+
+The constitution is auto-loaded into every session (via `opencode.json` → `instructions`) and is the first checkpoint of the proposal workflow. It is enforced through the mandatory review workflow (`/opsx-review`).
