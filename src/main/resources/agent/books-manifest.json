@@ -1,0 +1,195 @@
+{
+  "actions": [
+    {
+      "name": "list_books",
+      "intent": "Returns every book currently in the reading log. Use this to see the full collection, to find a book's id before calling get_book/update_book/delete_book, or to check whether a book already exists before creating a new entry.",
+      "whenNotToUse": "Do not use this to look up a single known book by id — use get_book instead, which is more direct and returns a not_found error you can act on if the id turns out to be wrong.",
+      "sideEffects": "none",
+      "latencyBudgetMs": 2000,
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": ["books"],
+        "properties": {
+          "books": {
+            "type": "array",
+            "items": { "$ref": "#/$defs/book" }
+          }
+        }
+      },
+      "errors": [
+        { "code": "unknown_error", "retryable": false, "description": "Unexpected server error." }
+      ],
+      "specRef": "openspec/changes/add-agentic-action-layer-books/specs/books-agent-interface/spec.md"
+    },
+    {
+      "name": "get_book",
+      "intent": "Returns a single book's full details (title, author, review) by its id. Use this when you already know the book's id and need its current details.",
+      "whenNotToUse": "Do not use this to check whether a book already exists before creating one — book titles are not required to be unique in this log; use list_books and inspect the results instead.",
+      "sideEffects": "none",
+      "latencyBudgetMs": 2000,
+      "inputSchema": {
+        "type": "object",
+        "required": ["id"],
+        "properties": {
+          "id": { "type": "integer", "description": "The book's id, from list_books or a prior create_book/update_book result." }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": { "$ref": "#/$defs/book" },
+      "errors": [
+        { "code": "book_not_found", "retryable": false, "description": "No book exists with the given id." },
+        { "code": "unknown_error", "retryable": false, "description": "Unexpected server error." }
+      ],
+      "specRef": "openspec/changes/add-agentic-action-layer-books/specs/books-agent-interface/spec.md"
+    },
+    {
+      "name": "create_book",
+      "intent": "Adds a new book entry to the reading log with a title, author, and an optional review. Use this when the reader started or finished a book that is not yet in the log.",
+      "whenNotToUse": "Do not use this to change an existing book's details — use update_book with the book's id instead; create_book always makes a new, separate entry.",
+      "sideEffects": "idempotent",
+      "idempotent": true,
+      "latencyBudgetMs": 2000,
+      "inputSchema": {
+        "type": "object",
+        "required": ["bookName", "author", "idempotencyKey"],
+        "properties": {
+          "bookName": { "type": "string", "minLength": 1, "description": "Title of the book." },
+          "author": { "type": "string", "minLength": 1, "description": "Author of the book." },
+          "review": { "type": "string", "description": "The reader's review, if any." },
+          "idempotencyKey": { "type": "string", "minLength": 1, "description": "Caller-supplied opaque string. Reusing the same key with the same parameters replays the original result instead of creating a duplicate." }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": { "$ref": "#/$defs/book" },
+      "errors": [
+        { "code": "book_name_required", "retryable": true, "description": "bookName was missing or blank." },
+        { "code": "author_required", "retryable": true, "description": "author was missing or blank." },
+        { "code": "idempotency_key_reused", "retryable": false, "description": "idempotencyKey was already used for a call with different parameters." },
+        { "code": "unknown_error", "retryable": false, "description": "Unexpected server error." }
+      ],
+      "specRef": "openspec/changes/add-agentic-action-layer-books/specs/books-agent-interface/spec.md"
+    },
+    {
+      "name": "update_book",
+      "intent": "Replaces an existing book's title, author, and review with new values. Use this to correct a typo, add or change a review, or otherwise update a book already in the log.",
+      "whenNotToUse": "Do not use this to change a single field in isolation — this API has no partial patch, update_book always replaces bookName, author, and review together, so pass the full current values for any field you are not changing. Do not use it to try to undo a delete_book — deletion is irreversible, there is nothing left to update back.",
+      "sideEffects": "idempotent",
+      "idempotent": true,
+      "latencyBudgetMs": 2000,
+      "inputSchema": {
+        "type": "object",
+        "required": ["id", "bookName", "author", "idempotencyKey"],
+        "properties": {
+          "id": { "type": "integer", "description": "The book's id." },
+          "bookName": { "type": "string", "minLength": 1, "description": "Title of the book." },
+          "author": { "type": "string", "minLength": 1, "description": "Author of the book." },
+          "review": { "type": "string", "description": "The reader's review, if any." },
+          "idempotencyKey": { "type": "string", "minLength": 1, "description": "Caller-supplied opaque string. Reusing the same key with the same parameters replays the original result." }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": { "$ref": "#/$defs/book" },
+      "errors": [
+        { "code": "book_not_found", "retryable": false, "description": "No book exists with the given id." },
+        { "code": "book_name_required", "retryable": true, "description": "bookName was missing or blank." },
+        { "code": "author_required", "retryable": true, "description": "author was missing or blank." },
+        { "code": "idempotency_key_reused", "retryable": false, "description": "idempotencyKey was already used for a call with different parameters." },
+        { "code": "unknown_error", "retryable": false, "description": "Unexpected server error." }
+      ],
+      "specRef": "openspec/changes/add-agentic-action-layer-books/specs/books-agent-interface/spec.md"
+    },
+    {
+      "name": "delete_book",
+      "intent": "Permanently removes a book entry from the reading log. This is irreversible — there is no undo. Always call first with dryRun: true to preview the book being deleted and obtain a confirmationToken, then call again with that token to actually delete it.",
+      "whenNotToUse": "Do not call this for real (dryRun absent/false) without first previewing it — it will be rejected without a valid confirmationToken from a matching prior dry-run. If you want a backup before deleting, call export_books first, since the deletion cannot be undone afterward.",
+      "sideEffects": "consequential",
+      "costTier": "free",
+      "requiresDryRun": true,
+      "idempotent": true,
+      "latencyBudgetMs": 2000,
+      "inputSchema": {
+        "type": "object",
+        "required": ["id", "idempotencyKey"],
+        "properties": {
+          "id": { "type": "integer", "description": "The book's id to delete." },
+          "idempotencyKey": { "type": "string", "minLength": 1, "description": "Caller-supplied opaque string, required on every call (preview and confirm)." },
+          "dryRun": { "type": "boolean", "description": "Set true to preview the delete and obtain a confirmationToken, without deleting anything." },
+          "confirmationToken": { "type": "string", "description": "Token returned by a prior dry-run for this exact book. Required to actually delete." }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "description": "On a real delete: { deleted: true, id }. On a dry-run: the guardrail preview shape (dryRun, preview, impact, confirmationToken).",
+        "properties": {
+          "deleted": { "type": "boolean" },
+          "id": { "type": "integer" },
+          "dryRun": { "type": "boolean" },
+          "preview": { "$ref": "#/$defs/book" },
+          "impact": {
+            "type": "object",
+            "properties": {
+              "summary": { "type": "string" },
+              "reversible": { "type": "boolean" },
+              "affectsThirdParty": { "type": "boolean" }
+            }
+          },
+          "confirmationToken": { "type": "string" }
+        }
+      },
+      "errors": [
+        { "code": "book_not_found", "retryable": false, "description": "No book exists with the given id." },
+        { "code": "confirmation_required", "retryable": true, "description": "Real delete called without a valid, matching confirmationToken from a prior dry-run." },
+        { "code": "idempotency_key_reused", "retryable": false, "description": "idempotencyKey was already used for a call with a different id." },
+        { "code": "unknown_error", "retryable": false, "description": "Unexpected server error." }
+      ],
+      "specRef": "openspec/changes/add-agentic-action-layer-books/specs/books-agent-interface/spec.md"
+    },
+    {
+      "name": "export_books",
+      "intent": "Writes every current book entry to a books.json file in the server's working directory, for backup or offline use. Use this when the reader wants their reading log exported or backed up to a file, or before calling delete_book if they may want the deleted entry back later.",
+      "whenNotToUse": "Do not use this to read the current book list back into the conversation — use list_books, which returns the data directly instead of writing it to a server-side file. A replay of the same idempotencyKey returns the originally-exported snapshot, not a fresh export — use a new idempotencyKey to force a fresh export.",
+      "sideEffects": "idempotent",
+      "idempotent": true,
+      "latencyBudgetMs": 2000,
+      "inputSchema": {
+        "type": "object",
+        "required": ["idempotencyKey"],
+        "properties": {
+          "idempotencyKey": { "type": "string", "minLength": 1, "description": "Caller-supplied opaque string. Reusing the same key replays the original export result instead of writing again." }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": ["path"],
+        "properties": {
+          "path": { "type": "string", "description": "Path to the written JSON file, relative to the server's working directory." }
+        }
+      },
+      "errors": [
+        { "code": "export_write_failed", "retryable": true, "description": "Writing the export file failed (disk I/O)." },
+        { "code": "idempotency_key_reused", "retryable": false, "description": "idempotencyKey was already used for a prior export call." },
+        { "code": "unknown_error", "retryable": false, "description": "Unexpected server error." }
+      ],
+      "specRef": "openspec/changes/add-agentic-action-layer-books/specs/books-agent-interface/spec.md"
+    }
+  ],
+  "$defs": {
+    "book": {
+      "type": "object",
+      "required": ["id", "bookName", "author"],
+      "properties": {
+        "id": { "type": "integer" },
+        "bookName": { "type": "string" },
+        "author": { "type": "string" },
+        "review": { "type": ["string", "null"] }
+      }
+    }
+  }
+}
